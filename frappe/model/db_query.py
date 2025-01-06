@@ -456,6 +456,8 @@ class DatabaseQuery:
 			"count(",
 			"sum(",
 			"avg(",
+			"min(",
+			"max(",
 		]
 		# add tables from fields
 		if self.fields:

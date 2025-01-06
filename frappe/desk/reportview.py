@@ -162,20 +162,34 @@ def validate_filters(data, filters):
 
 def setup_group_by(data):
 	"""Add columns for aggregated values e.g. count(name)"""
-	if data.group_by and data.aggregate_function:
-		if data.aggregate_function.lower() not in ("count", "sum", "avg"):
-			frappe.throw(_("Invalid aggregate function"))
-
-		if frappe.db.has_column(data.aggregate_on_doctype, data.aggregate_on_field):
-			data.fields.append(
-				f"{data.aggregate_function}(`tab{data.aggregate_on_doctype}`.`{data.aggregate_on_field}`) AS _aggregate_column"
+	if data.group_by:
+		for column in data.aggregate_columns or []:
+			func, doctype, field = (
+				column.get("aggregate_function"),
+				column.get("aggregate_on_doctype"),
+				column.get("aggregate_on_field"),
 			)
-		else:
-			raise_invalid_field(data.aggregate_on_field)
+			if func.lower() not in ("count", "sum", "avg", "min", "max"):
+				frappe.throw(_("Invalid aggregate function"))
 
-		data.pop("aggregate_on_doctype")
-		data.pop("aggregate_on_field")
-		data.pop("aggregate_function")
+			if frappe.db.has_column(doctype, field):
+				column = f"{func}(`tab{doctype}`.`{field}`)"
+				column = column + f" AS '{':'.join([d for d in [func, doctype, field] if d])}'"
+				data.fields.append(column)
+			else:
+				raise_invalid_field(field)
+
+		group_by = []
+		for column in data.group_by or []:
+			doctype, field = column.get("group_by_doctype"), column.get("group_by_field")
+			# main doctype field, group by field, child table field
+
+			if not frappe.db.has_column(doctype, field):
+				raise_invalid_field(field)
+			group_by.append(f"`tab{doctype}`.`{field}`")
+
+		data.group_by = ", ".join(group_by)
+		data.pop("aggregate_columns")
 
 
 def raise_invalid_field(fieldname):
@@ -237,6 +251,10 @@ def parse_json(data):
 		data["or_filters"] = json.loads(or_filters)
 	if (fields := data.get("fields")) and isinstance(fields, str):
 		data["fields"] = ["*"] if fields == "*" else json.loads(fields)
+	if (aggregate_columns := data.get("aggregate_columns")) and isinstance(aggregate_columns, str):
+		data["aggregate_columns"] = json.loads(aggregate_columns)
+	if (group_by := data.get("group_by")) and isinstance(group_by, str):
+		data["group_by"] = json.loads(group_by)
 	if isinstance(data.get("docstatus"), str):
 		data["docstatus"] = json.loads(data["docstatus"])
 	if isinstance(data.get("save_user_settings"), str):

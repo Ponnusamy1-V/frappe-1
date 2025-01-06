@@ -124,7 +124,7 @@
 }
 
 .group-by-popover {
-	min-width: 500px;
+	min-width: 650px;
 	min-height: 50px;
 	@include get_textstyle("base", "regular");
 
@@ -141,6 +141,10 @@
 			top: 7px;
 			right: 12px;
 			pointer-events: none;
+		}
+
+		.list_groupby {
+			padding-top: 15px;
 		}
 	}
 }

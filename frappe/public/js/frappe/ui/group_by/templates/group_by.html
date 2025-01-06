@@ -1,0 +1,24 @@
+<div class="flex group-by-row">
+    <div class="col-sm-11 form-group" style="padding-right: 5px">
+        <select class="group-by form-control input-xs">
+            <option value="" selected>{{ __("Select Group By...") }}</option>
+            {% for (var doctype in group_by_conditions) { %}
+                {% for (var val of group_by_conditions[doctype]) { %}
+                    <option
+                        data-doctype="{{doctype}}"
+                        value="{{val.fieldname}}"
+                    >
+                        {{ __(val.label || val.fieldname, null, val.parent ) }} {% if (parent_doctype != doctype) { %} ({{ __(doctype) }}) {% } %}
+                    </option>
+                {% } %}
+            {% } %}
+        </select>
+    </div>
+    <div class="groupby-actions pull-left hidden-xs" style="padding-right: 0px">
+        <span class="remove-group-by">
+            <svg class="icon icon-sm">
+                <use href="#icon-close"></use>
+            </svg>
+        </span>
+    </div>
+</div>

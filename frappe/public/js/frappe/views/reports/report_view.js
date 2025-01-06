@@ -885,7 +885,7 @@ frappe.views.ReportView = class ReportView extends frappe.views.ListView {
 		if (index === -1) return;
 		const field = this.fields[index];
 
-		if (field[0] === "name") {
+		if (field[0] === "name" && !this.group_by_control.group_by?.length) {
 			this.refresh();
 			frappe.throw(__("Cannot remove ID field"));
 		}
@@ -1062,12 +1062,12 @@ frappe.views.ReportView = class ReportView extends frappe.views.ListView {
 	}
 
 	build_column(c) {
-		let [fieldname, doctype] = c;
+		let [fieldname, doctype, aggregate_function] = c;
 		let docfield = frappe.meta.docfield_map[doctype || this.doctype][fieldname];
 
 		// group by column
-		if (fieldname === "_aggregate_column") {
-			docfield = this.group_by_control.get_group_by_docfield();
+		if (aggregate_function) {
+			docfield = this.group_by_control.get_group_by_docfield(c);
 		}
 
 		// child table index column
@@ -1120,10 +1120,10 @@ frappe.views.ReportView = class ReportView extends frappe.views.ListView {
 			return docfield.fieldtype === "Date" ? "right" : "left";
 		})();
 
-		let id = fieldname;
+		let id = docfield.fieldname;
 
 		// child table column
-		if (doctype !== this.doctype && fieldname !== "_aggregate_column") {
+		if (doctype !== this.doctype && !aggregate_function) {
 			id = `${doctype}:${fieldname}`;
 		}
 
@@ -1148,7 +1148,7 @@ frappe.views.ReportView = class ReportView extends frappe.views.ListView {
 
 		return {
 			id: id,
-			field: fieldname,
+			field: docfield.fieldname,
 			name: title,
 			content: title,
 			docfield,

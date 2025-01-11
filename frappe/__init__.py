@@ -279,6 +279,7 @@ def init(site: str, sites_path: str = ".", new_site: bool = False, force: bool =
 	if not _one_time_setup.get(local.conf.db_type):
 		patch_query_execute()
 		patch_query_aggregation()
+		frappe._optimizations.register_fault_handler()
 		_one_time_setup[local.conf.db_type] = True
 
 	setup_module_map(include_all_apps=not (frappe.request or frappe.job or frappe.flags.in_migrate))
@@ -967,7 +968,9 @@ def clear_cache(user: str | None = None, doctype: str | None = None):
 		for fn in get_hooks("clear_cache"):
 			get_attr(fn)()
 
-	frappe.utils.caching._SITE_CACHE.clear()
+	if (not doctype and not user) or doctype == "DocType":
+		frappe.utils.caching._SITE_CACHE.clear()
+
 	local.role_permissions = {}
 	if hasattr(local, "request_cache"):
 		local.request_cache.clear()

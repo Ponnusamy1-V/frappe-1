@@ -23,13 +23,10 @@ frappe.ui.GroupBy = class {
 			{ name: "max", label: __("Maximum") },
 		];
 
+		this.get_group_by_fields();
+
 		this.group_by_popover = $(frappe.render_template("group_by_area"));
-
-		this.new_group_by_field = frappe.render_template("group_by", {
-			group_by_conditions: this.get_group_by_fields(),
-			parent_doctype: this.doctype,
-		});
-
+		this.new_group_by_field = frappe.render_template("group_by");
 		this.new_aggregate_column_field = frappe.render_template("aggregate_column", {
 			aggregate_function_conditions: this.sql_aggregate_functions,
 		});
@@ -57,17 +54,16 @@ frappe.ui.GroupBy = class {
 		});
 	}
 
-	// TODO: make common with filter popover
 	set_popover_events() {
 		$(document.body).on("click", (e) => {
 			if (this.wrapper && this.wrapper.is(":visible")) {
 				if (
 					$(e.target).parents(".group-by-popover").length === 0 &&
 					$(e.target).parents(".group-by-box").length === 0 &&
-					$(e.target).parents(".group-by-button").length === 0
+					$(e.target).parents(".group-by-button").length === 0 &&
+					!$(e.target).is(this.group_by_button)
 				) {
-					this.clear_empty_fields();
-					this.wrapper && this.group_by_button.popover("hide");
+					this.wrapper && this.hide_popover();
 				}
 			}
 		});
@@ -81,33 +77,35 @@ frappe.ui.GroupBy = class {
 				this.wrapper = $(".group-by-popover");
 				this.setup_group_by_area();
 			}
-			if (!this.group_by?.length) {
+			if (!this.group_by_field_list?.length) {
 				this.add_group_by_field();
 			}
-
-			if (!this.group_by_aggregate_fields?.length) {
+			if (!this.aggregate_on_field_list?.length) {
 				this.add_aggregate_column_field();
 			}
 		});
 
 		this.group_by_button.on("hidden.bs.popover", () => {
+			this.clear_empty_fields();
 			this.update_group_by_button();
 		});
 
 		frappe.router.on("change", () => {
-			this.clear_empty_fields();
-			this.group_by_button.popover("hide");
+			this.hide_popover();
 		});
 	}
 
-	setup_group_by_area() {
-		if (!this.group_by) {
-			this.group_by = [];
-		}
+	hide_popover() {
+		this.clear_empty_fields();
+		this.group_by_button.popover("hide");
+	}
 
-		if (!this.group_by_aggregate_fields) {
-			this.group_by_aggregate_fields = [];
-		}
+	setup_group_by_area() {
+		this.group_by_field_list = this.group_by_field_list ?? [];
+		this.aggregate_on_field_list = this.aggregate_on_field_list ?? [];
+
+		this.group_by = this.group_by ?? [];
+		this.group_by_aggregate_fields = this.group_by_aggregate_fields ?? [];
 
 		this.group_by_box = this.wrapper.find(".group-by-box");
 		this.group_by_box.find(".group-by-fields").html("");
@@ -128,17 +126,20 @@ frappe.ui.GroupBy = class {
 	}
 
 	set_group_by_events() {
-		// try running on change
-		this.group_by_box.on("change", "select.group-by", () => {
-			this.apply_group_by_and_refresh();
-		});
-
 		this.group_by_box.on("change", "select.aggregate-function", (e) => {
-			this.toggle_aggregate_on_field_options($(e.target).closest(".aggregate-row"));
-			this.apply_group_by_and_refresh();
-		});
+			const field = $(e.target).data("aggregate-field");
+			field.awesomeplete_list = [];
+			field.options = [];
+			field.fields_by_name = {};
+			field.build_options();
+			field.awesomplete._list = field.options;
 
-		this.group_by_box.on("change", "select.aggregate-on", () => {
+			// to remove unrelated value for that aggregate function
+			if (field.$input.val()) {
+				field.set_value(field.selected_doctype, field.selected_fieldname);
+			} else {
+				field.set_value();
+			}
 			this.apply_group_by_and_refresh();
 		});
 
@@ -151,12 +152,28 @@ frappe.ui.GroupBy = class {
 		});
 
 		this.group_by_box.on("click", ".remove-group-by", (e) => {
+			this.group_by_field_list = this.group_by_field_list.reduce((res, f) => {
+				if (!f.parent.closest(".group-by-row").is($(e.target).closest(".group-by-row"))) {
+					res.push(f);
+				}
+				return res;
+			}, []);
+
 			$(e.target).closest(".group-by-row").remove();
 			this.apply_group_by_and_refresh();
 			e.stopPropagation();
 		});
 
 		this.group_by_box.on("click", ".remove-aggregate-column", (e) => {
+			this.aggregate_on_field_list = this.aggregate_on_field_list.reduce((res, f) => {
+				if (
+					!f.parent.closest(".aggregate-row").is($(e.target).closest(".aggregate-row"))
+				) {
+					res.push(f);
+				}
+				return res;
+			}, []);
+
 			$(e.target).closest(".aggregate-row").remove();
 			this.apply_group_by_and_refresh();
 			e.stopPropagation();
@@ -164,53 +181,13 @@ frappe.ui.GroupBy = class {
 
 		this.group_by_box.on("click", ".apply-group-by", (e) => {
 			this.apply_group_by_and_refresh();
-			this.clear_empty_fields();
-			this.group_by_button.popover("hide");
+			this.hide_popover();
 		});
 
 		this.group_by_box.on("click", ".remove-all-group-by", (e) => {
 			this.remove_group_by();
-			this.group_by_button.popover("hide");
+			this.hide_popover();
 		});
-	}
-
-	toggle_aggregate_on_field_options(aggregate_row) {
-		if (!aggregate_row) {
-			aggregate_row = this.group_by_box.find(".aggregate-row");
-		}
-
-		for (let idx = 0; idx < aggregate_row.length; idx++) {
-			this.aggregate_on_select = $(aggregate_row[idx]).find("select.aggregate-on");
-			this.aggregate_function_select = $(aggregate_row[idx]).find(
-				"select.aggregate-function"
-			);
-
-			let fn = this.aggregate_function_select.val();
-			let aggregate_on_html = `<option value="" disabled selected>
-						${__("Select Field...")}
-					</option>`;
-
-			for (let doctype in this.all_fields) {
-				const doctype_fields = this.all_fields[doctype];
-				doctype_fields.forEach((field) => {
-					// pick numeric fields for sum / avg / min / max
-					if (
-						!["sum", "avg", "min", "max"].includes(fn) ||
-						frappe.model.is_numeric_field(field.fieldtype)
-					) {
-						let field_label = field.label || frappe.model.unscrub(field.fieldname);
-						let option_text =
-							doctype == this.doctype
-								? __(field_label, null, field.parent)
-								: `${__(field_label, null, field.parent)} (${__(doctype)})`;
-						aggregate_on_html += `<option data-doctype="${doctype}"
-									value="${field.fieldname}">${option_text}</option>`;
-					}
-				});
-			}
-
-			this.aggregate_on_select.html(aggregate_on_html);
-		}
 	}
 
 	set_args(args) {
@@ -355,31 +332,31 @@ frappe.ui.GroupBy = class {
 		this.group_by = []; // group by fields
 		this.group_by_aggregate_fields = []; // aggregate fields
 
-		const group_by_select_fields = this.group_by_box.find(".group-by-fields select.group-by");
-		for (let idx = 0; idx < group_by_select_fields.length; idx++) {
-			const group_by_select = $(group_by_select_fields[idx]);
-			if (group_by_select.val()) {
+		for (let idx = 0; idx < this.group_by_field_list.length; idx++) {
+			const group_by_select = this.group_by_field_list[idx];
+			if (group_by_select.$input.val() && group_by_select.get_value()) {
 				this.group_by.push({
-					group_by_doctype: group_by_select.find(":selected").attr("data-doctype"),
-					group_by_field: group_by_select.val(),
+					group_by_doctype: group_by_select.selected_doctype,
+					group_by_field: group_by_select.selected_fieldname,
 				});
 			}
 		}
 
-		const aggregate_fields = this.group_by_box.find(".aggregate-fields .aggregate-row");
-		for (let idx = 0; idx < aggregate_fields.length; idx++) {
-			const aggregate_on_select = $(aggregate_fields[idx]).find("select.aggregate-on");
-			const aggregate_function = $(aggregate_fields[idx])
-				.find("select.aggregate-function")
-				.val();
+		for (let idx = 0; idx < this.aggregate_on_field_list.length; idx++) {
+			const aggregate_on_select = this.aggregate_on_field_list[idx];
+			const aggregate_function = this.aggregate_on_field_list[idx].parent
+				.closest(".aggregate-row")
+				.find("select.aggregate-function");
 
-			if (aggregate_on_select.val() && aggregate_function) {
+			if (
+				aggregate_on_select.$input.val() &&
+				aggregate_on_select.get_value() &&
+				aggregate_function.val()
+			) {
 				this.group_by_aggregate_fields.push({
-					aggregate_on_doctype: aggregate_on_select
-						.find(":selected")
-						.attr("data-doctype"),
-					aggregate_on_field: aggregate_on_select.val(),
-					aggregate_function: aggregate_function,
+					aggregate_on_doctype: aggregate_on_select.selected_doctype,
+					aggregate_on_field: aggregate_on_select.selected_fieldname,
+					aggregate_function: aggregate_function.val(),
 				});
 			}
 		}
@@ -391,21 +368,39 @@ frappe.ui.GroupBy = class {
 	}
 
 	clear_empty_fields() {
+		if (!this.wrapper) {
+			return;
+		}
+
 		if (!this.group_by?.length) {
-			this.group_by_box.find(".aggregate-fields").html("");
 			this.remove_group_by();
 		} else {
-			Array(...this.group_by_box.find(".group-by-fields .group-by-row")).forEach((ele) => {
-				if (!$(ele).find("select.group-by").val()) {
-					$(ele).remove();
-				}
-			});
+			this.group_by_field_list =
+				this.group_by_field_list?.reduce((list, field) => {
+					if (!field.$input.val() || !field.get_value()) {
+						field.parent.closest(".group-by-row").remove();
+					} else {
+						list.push(field);
+					}
+					return list;
+				}, []) || [];
 
-			Array(...this.group_by_box.find(".aggregate-fields .aggregate-row")).forEach((ele) => {
-				if (!$(ele).find("select.aggregate-on").val()) {
-					$(ele).remove();
-				}
-			});
+			this.aggregate_on_field_list =
+				this.aggregate_on_field_list?.reduce((list, field) => {
+					if (
+						!field.$input.val() ||
+						!field.get_value() ||
+						!field.parent
+							.closest(".aggregate-row")
+							.find("select.aggregate-function")
+							.val()
+					) {
+						field.parent.closest(".aggregate-row").remove();
+					} else {
+						list.push(field);
+					}
+					return list;
+				}, []) || [];
 		}
 	}
 
@@ -489,35 +484,98 @@ frappe.ui.GroupBy = class {
 	add_group_by_field(doctype, fieldname) {
 		const new_field = $(this.new_group_by_field);
 		this.group_by_box.find(".group-by-fields").append(new_field);
+
+		const fieldselect = new frappe.ui.FieldSelect({
+			parent: new_field.find(".group-by-field-container"),
+			doctype: this.doctype,
+			parent_doctype: this.doctype,
+			input_class: "input-xs",
+			select: () => {
+				this.apply_group_by_and_refresh();
+			},
+		});
+
 		if (doctype && fieldname) {
-			new_field.find("select.group-by").val(fieldname);
-			new_field
-				.find("select.group-by")
-				.find(`option[data-doctype="${doctype}"][value="${fieldname}"]`)
-				?.prop("selected", true);
+			fieldselect.set_value(doctype, fieldname);
+		} else {
+			fieldselect.set_value();
 		}
+
+		this.group_by_field_list.push(fieldselect);
 	}
 
 	add_aggregate_column_field(func, doctype, fieldname) {
 		const new_field = $(this.new_aggregate_column_field);
-		this.group_by_box.find(".aggregate-fields").append(new_field);
-		this.toggle_aggregate_on_field_options(new_field);
-		if (func && doctype && fieldname) {
-			new_field.find("select.aggregate-on").val(fieldname);
-			new_field
-				.find("select.aggregate-on")
-				.find(`option[data-doctype="${doctype}"][value="${fieldname}"]`)
-				?.prop("selected", true);
+		if (func) {
 			new_field.find("select.aggregate-function").val(func);
 		}
+		this.group_by_box.find(".aggregate-fields").append(new_field);
+
+		const aggr_field_fieldselect = new frappe.ui.FieldSelect({
+			parent: new_field.find(".aggregate-on-field-container"),
+			doctype: this.doctype,
+			parent_doctype: this.doctype,
+			filter_fields: (df, me) => {
+				let fn = me.parent
+					.closest(".aggregate-row")
+					.find("select.aggregate-function")
+					.val();
+
+				if (["sum", "avg", "min", "max"].includes(fn)) {
+					return frappe.model.is_numeric_field(df);
+				}
+				return true;
+			},
+			input_class: "input-xs",
+			select: () => {
+				this.apply_group_by_and_refresh();
+			},
+		});
+
+		new_field
+			.find("select.aggregate-function")
+			.data("aggregate-field", aggr_field_fieldselect);
+
+		if (doctype && fieldname) {
+			aggr_field_fieldselect.set_value(doctype, fieldname);
+		} else {
+			aggr_field_fieldselect.set_value();
+		}
+
+		this.aggregate_on_field_list.push(aggr_field_fieldselect);
 	}
 
 	remove_group_by() {
+		if (this.group_by_field_list.length === 1) {
+			this.group_by_field_list[0].set_value();
+		} else {
+			this.group_by_field_list = [];
+			this.group_by_box.find(".group-by-fields").html("");
+		}
+
+		if (this.aggregate_on_field_list.length === 1) {
+			this.aggregate_on_field_list[0].set_value();
+			this.aggregate_on_field_list[0].parent
+				.closest(".aggregate-row")
+				.find("select.aggregate-function")
+				.val("");
+		} else {
+			this.aggregate_on_field_list = [];
+			this.group_by_box.find(".aggregate-fields").html("");
+		}
+
+		if (
+			!this.group_by.length &&
+			!this.group_by_aggregate_fields.length &&
+			!this.original_fields?.length &&
+			this.group_by_field_list.length === 1 &&
+			this.aggregate_on_field_list.length === 1
+		) {
+			return;
+		}
+
 		this.group_by = [];
 		this.group_by_aggregate_fields = [];
-
-		this.group_by_box.find(".group-by-fields").html("");
-		this.group_by_box.find(".aggregate-fields").html("");
 
 		// restore original fields
 		if (this.original_fields) {

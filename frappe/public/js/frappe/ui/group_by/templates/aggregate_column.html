@@ -1,5 +1,5 @@
-<div class="flex aggregate-row">
-    <div class="col-sm-5 form-group" style="padding-right: 0px">
+<div class="flex aggregate-row" style="gap: var(--padding-md); padding: var(--padding-xs) 0 var(--padding-xs) 0;">
+    <div class="col-sm-3" style="padding: 0px">
         <select class="aggregate-function form-control input-xs">
             <option value="" disabled selected>{{ __("Select Function...") }}</option>
             {% for condition in aggregate_function_conditions %}
@@ -7,11 +7,7 @@
             {% endfor %}
         </select>
     </div>
-    <div class="col-sm-7 form-group" style="padding-right: 5px">
-        <select class="aggregate-on form-control input-xs">
-            <option value="" disabled selected>{{ __("Select Field...") }}</option>
-        </select>
-    </div>
+    <div class="aggregate-on-field-container"></div>
     <div class="groupby-actions pull-left hidden-xs" style="padding-right: 0px">
         <span class="remove-aggregate-column">
             <svg class="icon icon-sm">

@@ -39,7 +39,7 @@ frappe.ui.FieldSelect = class FieldSelect {
 			me.$input.val(item.label);
 		});
 
-		if (this.filter_fields) {
+		if (this.filter_fields && !typeof this.filter_fields == "function") {
 			for (var i in this.filter_fields) this.add_field_option(this.filter_fields[i]);
 		} else {
 			this.build_options();
@@ -159,6 +159,10 @@ frappe.ui.FieldSelect = class FieldSelect {
 
 		if (frappe.model.table_fields.includes(df.fieldtype)) {
 			me.table_fields.push(df);
+			return;
+		}
+
+		if (typeof this.filter_fields === "function" && !this.filter_fields(df, me)) {
 			return;
 		}
 

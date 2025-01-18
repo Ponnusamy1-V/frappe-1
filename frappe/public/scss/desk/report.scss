@@ -131,7 +131,30 @@
 	@include get_textstyle("base", "regular");
 
 	.group-by-box {
-		padding: var(--margin-xs) var(--margin-md) var(--margin-xs) 0;
+		padding: var(--margin-xs) 0 var(--margin-xs) 0;
+
+		& > div.flex {
+			gap: 10px;
+		}
+
+		& > div.flex > div:first-child {
+			width: 35%;
+		}
+
+		& > div.flex > div.divider {
+			min-height: 100%;
+			min-width: 1px;
+			max-width: 1px;
+			background: var(--scrollbar-thumb-color);
+		}
+
+		& > div.flex > div:nth-child(3) {
+			width: 65%;
+		}
+
+		.title > * {
+			margin-left: auto;
+		}
 
 		.remove-group-by {
 			line-height: 2em;
@@ -145,8 +168,16 @@
 			pointer-events: none;
 		}
 
-		.list_groupby {
-			padding-top: 15px;
+		.col-sm-3,
+		.col-md-8 {
+			padding-left: 7px;
+			padding-right: 0px;
+		}
+
+		.group-by-row,
+		.aggregate-row {
+			padding: var(--padding-xs) 0 var(--padding-xs) 0;
+			gap: var(--padding-xs);
 		}
 	}
 }

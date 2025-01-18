@@ -174,7 +174,7 @@ def setup_group_by(data):
 
 			if frappe.db.has_column(doctype, field):
 				column = f"{func}(`tab{doctype}`.`{field}`)"
-				column = column + f" AS '{':'.join([d for d in [func, doctype, field] if d])}'"
+				column = column + f' AS "{":".join([d for d in [func, doctype, field] if d])}"'
 				data.fields.append(column)
 			else:
 				raise_invalid_field(field)

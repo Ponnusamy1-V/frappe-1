@@ -91,6 +91,12 @@ def new_site(
 
 	frappe.init(site, new_site=True)
 
+	if site in frappe.get_all_apps():
+		click.secho(
+			f"Your bench has an app called {site}, please choose another name for the site.", fg="red"
+		)
+		sys.exit(1)
+
 	if no_mariadb_socket:
 		click.secho(
 			"--no-mariadb-socket is DEPRECATED; "
@@ -778,7 +784,7 @@ def reload_doctype(context: CliCtxObj, doctype):
 def add_to_hosts(context: CliCtxObj):
 	"Add site to hosts"
 	for site in context.sites:
-		frappe.commands.popen(f"echo 127.0.0.1\t{site} | sudo tee -a /etc/hosts")
+		frappe.commands.popen(f"echo '127.0.0.1\t{site}\n::1\t{site}' | sudo tee -a /etc/hosts")
 	if not context.sites:
 		raise SiteNotSpecifiedError
 

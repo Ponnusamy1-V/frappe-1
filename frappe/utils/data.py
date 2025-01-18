@@ -113,21 +113,27 @@ def getdate(
 	"""
 	if not string_date:
 		return get_datetime().date()
-	if isinstance(string_date, datetime.datetime):
+	elif isinstance(string_date, datetime.datetime):
 		return string_date.date()
 
 	elif isinstance(string_date, datetime.date):
 		return string_date
 
-	if is_invalid_date_string(string_date):
+	elif is_invalid_date_string(string_date):
 		return None
+
 	try:
-		return parser.parse(string_date, dayfirst=parse_day_first).date()
-	except ParserError:
-		frappe.throw(
-			frappe._("{} is not a valid date string.").format(frappe.bold(string_date)),
-			title=frappe._("Invalid Date"),
-		)
+		# PERF: Our DATE_FORMAT is same as ISO format.
+		# fromisoformat is written in C so it's better than using strptime parser
+		return datetime.date.fromisoformat(string_date)
+	except ValueError:
+		try:
+			return parser.parse(string_date, dayfirst=parse_day_first).date()
+		except ParserError:
+			frappe.throw(
+				frappe._("{} is not a valid date string.").format(frappe.bold(string_date)),
+				title=frappe._("Invalid Date"),
+			)
 
 
 def get_datetime(
@@ -162,13 +168,7 @@ def get_datetime(
 	try:
 		# PERF: Our DATETIME_FORMAT is same as ISO format.
 		# fromisoformat is written in C so it's better than using strptime parser
-		dt_object = datetime.datetime.fromisoformat(datetime_str)
-
-		# fromisoformat also adds tzinfo if present in src string,
-		# so we strip it before returning
-		if dt_object.tzinfo:
-			return dt_object.replace(tzinfo=None)
-		return dt_object
+		return datetime.datetime.fromisoformat(datetime_str)
 	except ValueError:
 		return parser.parse(datetime_str)
 

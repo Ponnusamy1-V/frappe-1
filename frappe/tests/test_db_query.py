@@ -1340,20 +1340,46 @@ class TestReportView(IntegrationTestCase):
 				"doctype": "DocType",
 				"fields": """["`tabDocField`.`label` as field_label","`tabDocField`.`name` as field_name"]""",
 				"filters": "[]",
-				"order_by": "_aggregate_column desc",
+				"order_by": "columns desc",
 				"start": 0,
 				"page_length": 20,
 				"view": "Report",
 				"with_comment_count": 0,
-				"group_by": "field_label, field_name",
-				"aggregate_on_field": "columns",
-				"aggregate_on_doctype": "DocField",
-				"aggregate_function": "sum",
+				"group_by": [
+					{"group_by_doctype": "DocField", "group_by_field": "label"},
+					{"group_by_doctype": "DocField", "group_by_field": "name"},
+				],
+				"aggregate_columns": [
+					{
+						"aggregate_on_field": "columns",
+						"aggregate_on_doctype": "DocField",
+						"aggregate_function": "sum",
+					},
+					{
+						"aggregate_on_field": "fieldtype",
+						"aggregate_on_doctype": "DocField",
+						"aggregate_function": "count",
+					},
+					{
+						"aggregate_on_field": "options",
+						"aggregate_on_doctype": "DocField",
+						"aggregate_function": "count",
+					},
+				],
 			}
 		)
 
 		response = execute_cmd("frappe.desk.reportview.get")
-		self.assertListEqual(response["keys"], ["field_label", "field_name", "_aggregate_column"])
+		self.assertListEqual(
+			response["keys"],
+			[
+				"field_label",
+				"field_name",
+				"sum:DocField:columns",
+				"count:DocField:fieldtype",
+				"count:DocField:options",
+			],
+		)
 
 	def test_reportview_get_permlevel_system_users(self):
 		with setup_patched_blog_post(), setup_test_user(set_user=True):

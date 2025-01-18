@@ -257,6 +257,7 @@ frappe.ui.GroupBy = class {
 				group_by: this.group_by,
 				aggregate_columns: this.group_by_aggregate_fields,
 				order_by: {
+					doctype: this.report_view.sort_selector.doctype,
 					sort_by: this.report_view.sort_selector.sort_by,
 					sort_order: this.report_view.sort_selector.sort_order,
 				},

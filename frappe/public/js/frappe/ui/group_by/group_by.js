@@ -96,7 +96,6 @@ frappe.ui.GroupBy = class {
 	}
 
 	hide_popover() {
-		this.clear_empty_fields();
 		this.group_by_button.popover("hide");
 	}
 
@@ -301,23 +300,26 @@ frappe.ui.GroupBy = class {
 
 	get_group_by_docfield(column) {
 		// called from build_column
-		let docfield = {
-			read_only: 1,
-		};
 		let [fieldname, doctype, aggregate_function] = column;
 
+		let docfield;
+		if (frappe.model.std_fields.find((df) => df.fieldname === fieldname)) {
+			docfield = Object.assign(
+				{},
+				frappe.model.std_fields.find((df) => df.fieldname === fieldname)
+			);
+		} else {
+			docfield = Object.assign({}, frappe.meta.docfield_map[doctype][fieldname]);
+		}
+
 		if (aggregate_function === "count") {
-			let d = frappe.meta.docfield_map[doctype][fieldname];
-			docfield = {
+			docfield = Object.assign(docfield, {
 				fieldtype: "Int",
-				label: __("Count of {0}", [__(d.label, null, doctype)]),
+				label: __("Count of {0}", [__(docfield.label, null, doctype)]),
 				parent: doctype,
 				width: 200,
-			};
+			});
 		} else {
-			// get properties of "aggregate_on", for example Net Total
-			docfield = Object.assign({}, frappe.meta.docfield_map[doctype][fieldname]);
-
 			docfield.label = __("{0} of {1}", [
 				this.sql_aggregate_functions.find((r) => r.name === aggregate_function)?.label,
 				__(docfield.label, null, docfield.parent),

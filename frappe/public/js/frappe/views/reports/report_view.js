@@ -1725,10 +1725,7 @@ frappe.views.ReportView = class ReportView extends frappe.views.ListView {
 		let search_params = super.get_search_params();
 		let config = this.group_by_control.get_settings();
 		if (config) {
-			search_params.append(
-				"_group_by",
-				JSON.stringify([config.group_by, config.aggregate_on, config.aggregate_function])
-			);
+			search_params.append("_group_by", JSON.stringify(config));
 		}
 		return search_params;
 	}
@@ -1737,11 +1734,7 @@ frappe.views.ReportView = class ReportView extends frappe.views.ListView {
 		if (frappe.route_options?._group_by) {
 			try {
 				let config = JSON.parse(frappe.route_options._group_by);
-				this.group_by_control.apply_settings({
-					group_by: config[0],
-					aggregate_on: config[1],
-					aggregate_function: config[2],
-				});
+				this.group_by_control.apply_settings(config);
 				delete frappe.route_options["_group_by"];
 			} catch (e) {
 				console.warn("Failed to parse group by from URL", e);

@@ -241,7 +241,11 @@ frappe.ui.GroupBy = class {
 				) {
 					args.order_by = args.order_by.replace(
 						"`tab" + order_by_doctype + "`." + order_by_field,
-						[aggregate_function, aggregate_on_doctype, aggregate_on_field].join(":")
+						`${aggregate_function}(` +
+							"`" +
+							`tab${aggregate_on_doctype}` +
+							"`" +
+							`.${aggregate_on_field})`
 					);
 				}
 			});
@@ -469,6 +473,10 @@ frappe.ui.GroupBy = class {
 			return {
 				group_by: this.group_by,
 				aggregate_columns: this.group_by_aggregate_fields,
+				order_by: {
+					sort_by: this.report_view.sort_selector.sort_by,
+					sort_order: this.report_view.sort_selector.sort_order,
+				},
 			};
 		} else {
 			return null;
@@ -478,6 +486,14 @@ frappe.ui.GroupBy = class {
 	apply_settings(settings) {
 		this.group_by = settings.group_by;
 		this.group_by_aggregate_fields = settings.aggregate_columns;
+
+		if (settings.order_by) {
+			this.report_view.sort_selector.set_value(
+				settings.order_by.sort_by,
+				settings.order_by.sort_order
+			);
+		}
+
 		this.update_group_by_button();
 	}
 
